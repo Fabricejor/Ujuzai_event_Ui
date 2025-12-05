@@ -148,7 +148,7 @@ body {
 /* Classes utilitaires personnalisées si nécessaire */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-alexandra), var(--font-poppins), serif;
-  color: var(--secondary); /* Les titres en bleu secondaire par défaut (optionnel) */
+  /* color: var(--secondary); Les titres en bleu secondaire par défaut (optionnel) */
 }
 
 .dark {

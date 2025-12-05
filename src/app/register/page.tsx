@@ -4,15 +4,92 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { FileUpload } from "@/components/ui/file-upload";
 import { AvatarGroup } from "@/components/ui/avatar-group";
+import { registerTalent } from "@/services/authService";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import { IconX, IconFileText, IconTrash } from "@tabler/icons-react";
 
 export default function CandidatePage() {
+  const router = useRouter();
   const [userType, setUserType] = useState<"Talent" | "Company">("Talent");
   const [files, setFiles] = useState<File[]>([]);
   const [gender, setGender] = useState<"Male" | "Female">("Male");
+
+  // Form States
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
   
-  const handleFileUpload = (files: File[]) => {
-    setFiles(files);
-    console.log(files);
+  const [loading, setLoading] = useState(false);
+  
+  const handleFileUpload = (newFiles: File[]) => {
+    // On remplace toujours par le nouveau fichier (le dernier du tableau reçu)
+    if (newFiles.length > 0) {
+        setFiles([newFiles[newFiles.length - 1]]);
+        toast.success("CV téléchargé !", {
+            icon: '📄',
+            style: {
+              borderRadius: '10px',
+              background: '#333',
+              color: '#fff',
+            },
+        });
+    }
+  };
+
+  const removeFile = () => {
+      setFiles([]);
+      toast("Fichier supprimé", {
+          icon: '🗑️',
+      });
+  };
+
+  const handleSubmit = async () => {
+    // Validation basique
+    if (!name || !email || !phone) {
+        toast.error("Veuillez remplir tous les champs obligatoires.");
+        return;
+    }
+
+    if (userType === "Talent") {
+        if (files.length === 0) {
+            toast.error("Veuillez télécharger votre CV.");
+            return;
+        }
+
+        setLoading(true);
+        const loadingToast = toast.loading("Création du compte en cours...");
+
+        try {
+            const formData = new FormData();
+            formData.append("email", email);
+            formData.append("nom_prenom", name);
+            formData.append("numero_telephone", phone);
+            // Le backend attend "cv_file" comme clé pour le fichier
+            formData.append("cv_file", files[0]); 
+            
+            const response = await registerTalent(formData);
+            console.log("Registration success:", response);
+            
+            toast.success("Inscription réussie !", { id: loadingToast });
+            
+            // Petit délai pour laisser voir le toast avant redirection
+            setTimeout(() => {
+                router.push("/change-password");
+            }, 1000);
+            
+        } catch (error: any) {
+            console.error("Erreur lors de l'inscription", error);
+            const errorMessage = error.response?.data?.detail || "Une erreur est survenue lors de l'inscription.";
+            toast.error(errorMessage, { id: loadingToast });
+        } finally {
+            setLoading(false);
+        }
+    } else {
+        // Logique Company (Future implementation)
+        toast("Inscription Entreprise bientôt disponible !", { icon: '🚧' });
+    }
   };
 
   return (
@@ -92,6 +169,8 @@ export default function CandidatePage() {
             <input
               type="text"
               id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Mohamed Diouf"
               className="w-full p-3 rounded-xl border border-gray-200 bg-white text-gray-800 text-sm md:text-base outline-none focus:ring-2 focus:ring-(--primary-base) focus:border-transparent transition-all"
             />
@@ -99,17 +178,19 @@ export default function CandidatePage() {
 
           {/* Champ Company Name (Visible uniquement si Company) */}
           {userType === "Company" && (
-            <div className="space-y-1">
-              <label htmlFor="companyName" className="block text-sm md:text-base font-medium text-gray-700">
-                Company Name
-              </label>
-              <input
-                type="text"
-                id="companyName"
-                placeholder="GAINDE 2000"
-                className="w-full p-3 rounded-xl border border-gray-200 bg-white text-gray-800 text-sm md:text-base outline-none focus:ring-2 focus:ring-(--primary-base) focus:border-transparent transition-all"
-              />
-            </div>
+             <div className="space-y-1">
+               <label htmlFor="companyName" className="block text-sm md:text-base font-medium text-gray-700">
+                 Company Name
+               </label>
+               <input
+                 type="text"
+                 id="companyName"
+                 value={companyName}
+                 onChange={(e) => setCompanyName(e.target.value)}
+                 placeholder="GAINDE 2000"
+                 className="w-full p-3 rounded-xl border border-gray-200 bg-white text-gray-800 text-sm md:text-base outline-none focus:ring-2 focus:ring-(--primary-base) focus:border-transparent transition-all"
+               />
+             </div>
           )}
 
           {/* Ligne Email & Sexe (Grid conditionnelle) */}
@@ -121,6 +202,8 @@ export default function CandidatePage() {
               <input
                 type="email"
                 id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="MohamedDiouf@gtp.com"
                 className="w-full p-3 rounded-xl border border-gray-200 bg-white text-gray-800 text-sm md:text-base outline-none focus:ring-2 focus:ring-(--primary-base) focus:border-transparent transition-all"
               />
@@ -167,6 +250,8 @@ export default function CandidatePage() {
             <input
               type="tel"
               id="number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               placeholder="+221 77 722 22 22"
               className="w-full p-3 rounded-xl border border-gray-200 bg-white text-gray-800 text-sm md:text-base outline-none focus:ring-2 focus:ring-(--primary-base) focus:border-transparent transition-all"
             />
@@ -178,21 +263,50 @@ export default function CandidatePage() {
                 <label className="block text-sm md:text-base font-medium text-gray-700 shrink-0">
                 CV
                 </label>
-                <div className="w-full overflow-hidden rounded-xl border border-primary-pale flex-1 min-h-[100px]">
-                <FileUpload 
-                    onChange={handleFileUpload} 
-                    className="bg-primary-pale h-full min-h-[unset]"
-                />
-                </div>
+                
+                {/* Conteneur conditionnel : Soit Upload, Soit File Display */}
+                {files.length === 0 ? (
+                    <div className="w-full overflow-hidden rounded-xl border border-primary-pale flex-1 min-h-[100px] relative group">
+                         <FileUpload 
+                            onChange={handleFileUpload} 
+                            className="bg-primary-pale h-full min-h-[unset]"
+                        />
+                    </div>
+                ) : (
+                    <div className="w-full rounded-xl border border-(--primary-base) bg-white p-3 flex items-center justify-between animate-in fade-in zoom-in duration-300">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="p-2 bg-(--primary-base)/10 rounded-lg text-(--primary-base)">
+                                <IconFileText size={24} />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
+                                    {files[0].name}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                    {(files[0].size / 1024).toFixed(2)} KB
+                                </span>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={removeFile}
+                            className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors"
+                            title="Supprimer le fichier"
+                        >
+                            <IconTrash size={20} />
+                        </button>
+                    </div>
+                )}
             </div>
           )}
 
           {/* Bouton Send */}
           <div className="pt-2 shrink-0">
             <button 
-                className="w-full py-3 px-6 rounded-xl bg-(--secondary-base) text-white font-bold text-lg shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="w-full py-3 px-6 rounded-xl bg-(--secondary-base) text-white font-bold text-lg shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
             >
-                SEND
+                {loading ? "SENDING..." : "SEND"}
             </button>
           </div>
 
